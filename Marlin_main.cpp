@@ -65,6 +65,8 @@
   #include <SPI.h>
 #endif
 
+#include <math.h>
+
 /**
  * Look here for descriptions of G-codes:
  *  - http://linuxcnc.org/handbook/gcode/g-code.html
@@ -195,7 +197,7 @@
  * M503 - Print the current settings (from memory not from EEPROM). Use S0 to leave off headings.
  * M540 - Use S[0|1] to enable or disable the stop SD card print on endstop hit (requires ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
  * M600 - Pause for filament change X[pos] Y[pos] Z[relative lift] E[initial retract] L[later retract distance for removal]
- * M665 - Set delta configurations: L<diagonal rod> R<delta radius> S<segments/s>
+ * M665 - Set delta configurations: L<diagonal rod> R<delta radius> S<segments/s> H<nozzle height after homing> X<X tower angle correction> Y<Y tower angle correction> Z<Z tower angle correction> 
  * M666 - Set delta endstop adjustment
  * M605 - Set dual x-carriage movement mode: S<mode> [ X<duplication x-offset> R<duplication temp offset> ]
  * M907 - Set digital trimpot motor current using axis codes.
@@ -352,13 +354,16 @@ bool target_direction;
 
 #ifdef DELTA
   float delta[3] = { 0 };
-  #define SIN_60 0.8660254037844386
-  #define COS_60 0.5
-  //angle tower: 211.44, 331.11, 90
-  #define SIN_A -0.52160539569510781341954786874149
-  #define COS_A -0.85318685595932032228974654876297
-  #define SIN_B -0.48312957851016085956848687402348
-  #define COS_B 0.8755488623535492403071949746601
+  float SIN_60 = 0.8660254037844386;
+  float COS_60 = 0.5;
+  
+  float x_tower_angle = DEFAULT_X_TOWER_ANGLE;
+  float y_tower_angle = DEFAULT_Y_TOWER_ANGLE;
+  float z_tower_angle = DEFAULT_Z_TOWER_ANGLE;
+  float SIN_A = sin(to_radians(x_tower_angle));
+  float COS_A = cos(to_radians(x_tower_angle));
+  float SIN_B = sin(to_radians(y_tower_angle));
+  float COS_B = cos(to_radians(y_tower_angle));
   float endstop_adj[3] = { X_ENDSTOP_OFFSET,Y_ENDSTOP_OFFSET,Z_ENDSTOP_OFFSET };
   // these are the default values, can be overriden with M665
   // OK, this is just confusing for those who are weak with trigonometry.
@@ -4085,12 +4090,30 @@ inline void gcode_M206() {
    *    L = diagonal rod
    *    R = delta radius
    *    S = segments per second
+   *    H = max nozzle height
+   *    X = X tower angular correction
+   *    Y = Y tower angular correction
+   *    Z = Z tower angular correction
    */
   inline void gcode_M665() {
     if (code_seen('L')) delta_diagonal_rod = code_value();
     if (code_seen('R')) delta_radius = code_value();
-    if (code_seen('S')) delta_segments_per_second = code_value();
     recalc_delta_settings(delta_radius, delta_diagonal_rod);
+    if (code_seen('S')) delta_segments_per_second = code_value();
+    float x_corr = x_tower_angle - 210.0;
+    float y_corr = y_tower_angle - 330.0;
+    float z_corr = z_tower_angle - 90.0;
+    float h_nozzle;
+    if (code_seen('H')) h_nozzle = code_value();
+    if (code_seen('X')) x_corr = code_value();
+    if (code_seen('Y')) y_corr = code_value();
+    if (code_seen('Z')) z_corr = code_value();
+    recalc_delta_tower (x_corr, y_corr, z_corr);
+    // Z-height adjustment  is not implemented yet because of 
+    // widespread use of compile-time macro defining Z constants.
+    
+    //max_pos[Z_AXIS] = h_nozzle;
+    
   }
   /**
    * M666: Set delta endstop adjustment
@@ -5832,11 +5855,28 @@ void clamp_to_software_endstops(float target[3]) {
 
 #ifdef DELTA
 
+  inline float to_radians (float degree)
+  {
+    return 0.0174532925 * degree;
+  }
+  void recalc_delta_tower (float x_angle_corr, float y_angle_corr, float z_angle_corr)
+  {
+    x_tower_angle = 210 + x_angle_corr;
+    y_tower_angle = 330 + y_angle_corr;
+    z_tower_angle = 90 + z_angle_corr;
+    COS_A = cos(to_radians (x_tower_angle));
+    SIN_A = sin(to_radians (x_tower_angle));
+    COS_B = cos(to_radians (y_tower_angle));
+    SIN_B = sin(to_radians (y_tower_angle));
+    //Well, calibration routine always assume that Z tower is fixed in 90 angle
+    //so nothing done for that that tower
+  }
+
   void recalc_delta_settings(float radius, float diagonal_rod) {
-    delta_tower1_x = -SIN_60 * radius;  // front left tower
-    delta_tower1_y = -COS_60 * radius;
-    delta_tower2_x =  SIN_60 * radius;  // front right tower
-    delta_tower2_y = -COS_60 * radius;
+    delta_tower1_x = COS_A * radius;  // front left tower
+    delta_tower1_y = SIN_A * radius;
+    delta_tower2_x = COS_B * radius;  // front right tower
+    delta_tower2_y = SIN_B * radius;
     delta_tower3_x = 0.0;               // back middle tower
     delta_tower3_y = radius;
     delta_diagonal_rod_2 = sq(diagonal_rod);

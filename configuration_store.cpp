@@ -182,6 +182,10 @@ void Config_StoreSettings()  {
     EEPROM_WRITE_VAR(i, delta_radius);              // 1 float
     EEPROM_WRITE_VAR(i, delta_diagonal_rod);        // 1 float
     EEPROM_WRITE_VAR(i, delta_segments_per_second); // 1 float
+    EEPROM_WRITE_VAR(i, x_tower_angle);             // 1 float
+    EEPROM_WRITE_VAR(i, y_tower_angle);             // 1 float
+    EEPROM_WRITE_VAR(i, z_tower_angle);             // 1 float
+    
   #elif defined(Z_DUAL_ENDSTOPS)
     EEPROM_WRITE_VAR(i, z_endstop_adj);            // 1 floats
     dummy = 0.0f;
@@ -350,6 +354,9 @@ void Config_RetrieveSettings() {
       EEPROM_READ_VAR(i, delta_radius);               // 1 float
       EEPROM_READ_VAR(i, delta_diagonal_rod);         // 1 float
       EEPROM_READ_VAR(i, delta_segments_per_second);  // 1 float
+      EEPROM_READ_VAR(i, x_tower_angle);              // 1 float
+      EEPROM_READ_VAR(i, y_tower_angle);              // 1 float
+      EEPROM_READ_VAR(i, z_tower_angle);              // 1 float
     #elif defined(Z_DUAL_ENDSTOPS)
       EEPROM_READ_VAR(i, z_endstop_adj);
       dummy = 0.0f;
@@ -706,10 +713,14 @@ void Config_PrintSettings(bool forReplay) {
     SERIAL_EOL;
     CONFIG_ECHO_START;
     SERIAL_ECHOLNPGM("Delta settings: L=delta_diagonal_rod, R=delta_radius, S=delta_segments_per_second");
+    SERIAL_ECHOLNPGM("X=x_tower_correction, Y=y_tower_correction, Z=z_tower_correction");
     CONFIG_ECHO_START;
     SERIAL_ECHOPAIR("  M665 L", delta_diagonal_rod);
     SERIAL_ECHOPAIR(" R", delta_radius);
     SERIAL_ECHOPAIR(" S", delta_segments_per_second);
+    SERIAL_ECHOPAIR(" X", x_tower_angle - 210);
+    SERIAL_ECHOPAIR(" Y", y_tower_angle - 330);
+    SERIAL_ECHOPAIR(" Z", z_tower_angle - 90);
     SERIAL_EOL;
   #elif defined(Z_DUAL_ENDSTOPS)
     CONFIG_ECHO_START;

@@ -262,7 +262,9 @@ extern bool axis_known_position[3]; // axis[n].is_known
     extern float delta_radius;
     extern float delta_diagonal_rod;
     extern float delta_segments_per_second;
+    inline float to_radians (float degree);
     void recalc_delta_settings(float radius, float diagonal_rod);
+    void recalc_delta_tower (float x_angle_corr, float y_angle_corr, float z_angle_corr);
     #ifdef ENABLE_AUTO_BED_LEVELING
       extern int delta_grid_spacing[2];
       void adjust_delta(float cartesian[3]);
